@@ -1,0 +1,70 @@
+/* 
+ * Modification by Emmanuel Berlin December 2022 of original code by:
+ * Anna Klemm (anna.klemm@it.uu.se)
+ * Link: https://github.com/ahklemm/ImageJMacro_Introduction/tree/zidas2022
+ * NEUBIAS Academy
+ * BioImage Informatics Facility @SciLifeLab
+ * April 2020
+ * ImageJ/Fiji Macro Language
+ */
+
+//batch processing - Opening the files
+input_path = getDirectory("Choose image folder"); 
+fileList = getFileList(input_path); 
+
+for (f=0; f<fileList.length; f++){ //loops over all images in the given directory, f is used as a variable name instead of i since the ROIs use it. This will prevent overlap!!
+	
+	//clean-up to prepare for analysis
+	roiManager("reset");	
+	run("Close All");
+	run("Clear Results");
+
+	//open file
+	open(input_path + fileList[f]);
+	print(input_path + fileList[f]); //displays file that is processed
+
+	//Step1: Getting image information + normalise the data name
+	//get general information
+	title = getTitle();
+
+	//split channels and rename them
+	selectWindow(title);
+	rename(title + "mask");
+	selectWindow(title + "mask");
+	run("Duplicate...", " ");
+	
+	//gaussian
+	selectWindow(title + "mask-1");
+	run("Gaussian Blur...", "sigma=2");
+			
+	//Step2: Set threshold of SGs
+	selectWindow(title + "mask-1");
+	//thresholding
+	setAutoThreshold("RenyiEntropy dark");
+	setOption("BlackBackground", true);
+	run("Convert to Mask");
+	run("Watershed");
+	run("Analyze Particles...", "size=0.2-Infinity circularity=0.3-1.00 display exclude clear include summarize overlay add composite");
+	//postprocessing of binary image
+	run("Fill Holes");
+		
+	
+	//Step3: Retrieve the SG data ROI
+	selectWindow(title + "mask");
+	run("Set Measurements...", "area mean standard modal min centroid perimeter fit shape integrated median skewness area_fraction redirect=None decimal=3"); //define the measurements
+	selectWindow(title + "mask"); 
+	roiManager("deselect");  //ensures that no ROI is selected
+	roiManager("save selected", "C:/Users/" + title +"mask.roi"); // save ROI
+	roiManager("Measure");	//measures active ROI or - if no ROI is selected - all ROIs
+	
+	//Save mask for overlay of NanoSIMS images
+	selectWindow(title + "mask-1");
+	saveAs("Tiff", "C:/Users/" + title +"mask.tif"); //Change to your system
+	
+	//Save results with specific name
+	saveAs("results", "C:/Users/" + title + "_results.xls"); //Change to your system
+	
+} //closes loop over fileList
+
+
+ 
